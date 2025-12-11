@@ -110,10 +110,8 @@ function checksum()
 # Download the distfiles
 function fetch_distfiles()
 {
-	shift  # Remove flag
 	[ ! -d "$SRC_DIR" ] && mkdir -p "$SRC_DIR"
-	local pkgs="$@"
-	for pkg in "$pkgs"; do
+	for pkg in "$@"; do
 		result=$(find "$REPO_DIR" -type d -name "$pkg" -maxdepth 2)
 		if [ -z "$result" ]; then
 			echo "Package $pkg not found"
@@ -137,11 +135,12 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # command-line parsing
-while getopts "siquhfbc" opt; do
+while getopts "siq:uhfbc" opt; do
 	case "$opt" in
 		s) sync_repo && exit 0 ;;
-		f) fetch_distfiles "$@" && exit 0 ;;
-		q) query_pkg $2 && exit 0 ;;
+		f) shift && fetch_distfiles "$@" && exit 0 ;;
+		b) shift && build_pkg "$@" && exit 0 ;;
+		q) query_pkg "$OPTARG" && exit 0 ;;
 		h) show_help && exit 0 ;;
 	esac
 done
