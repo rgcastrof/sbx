@@ -1,0 +1,146 @@
+#!/bin/bash
+#
+# sbx - SlackBuilds.org package manager designed to provide a clean and straightforward command-line interface
+# Copyright (C) 2025 Rogério Girão
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+#
+# Project Page: https://github.com/rgcastrof/sbx
+# Rogério Girão rogeriogirao1@proton.me
+#
+
+REPO_DIR=${REPO_DIR:-"/var/lib/sbx/SBo"}
+REPO_URL=${REPO_URL:-"git://git.slackbuilds.org/slackbuilds.git"}
+SRC_DIR=${SRC_DIR:-"/var/cache/sbx"}
+
+# print error and exit
+function perror()
+{
+	local fmt="$1"
+	echo "$fmt" && exit 1
+}
+
+# Load package .info file
+function load_pkg_info()
+{
+	local info_file="$1"
+	if [ ! -f $info_file ]; then
+		echo "Info file: $info_file not found"
+		echo "Unable to download the distfiles"
+	else
+		unset PRGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM DOWNLOAD_x86_64 MD5SUM_x86_64 REQUIRES MAINTAINER EMAIL
+		source "$info_file"
+	fi
+}
+
+# If not exists clone SBo repository else update it
+function sync_repo()
+{
+	if [ ! -d "$REPO_DIR/.git" ]; then
+		echo "Cloning SlackBuilds.org repository."
+		mkdir -p "$REPO_DIR"
+		if ! git clone "$REPO_URL" "$REPO_DIR"; then
+			perror "Failed to clone repository."
+		fi
+		echo "Clone completed."
+	else
+		echo "Updating SlackBuilds.org repository."
+		if ! git --git-dir="$REPO_DIR/.git" --work-tree="$REPO_DIR" pull; then
+			perror "Failed to update SlackBuilds.org repository."
+		else
+			echo "Update completed."
+		fi
+	fi
+}
+
+# Query the specified package
+function query_pkg()
+{
+	local pkg="$1"
+	echo "Searching for $pkg"
+	results=$(find "$REPO_DIR" -type d -name "*$pkg*" -maxdepth 2 | sed 's|.*/SBo||')
+	[ -z "$results" ] && perror "No match for $pkg found"
+
+	echo "Found the following matches for $pkg"
+	echo "$results"
+}
+
+# if one of the variables doesnt exists, get the other and vice versa
+function get_urls()
+{
+	if [ -z "$DOWNLOAD_x86_64" ] || [ "$DOWNLOAD_x86_64" = "UNSUPPORTED" ]; then
+		urls=($DOWNLOAD)
+	else
+		urls=($DOWNLOAD_x86_64)
+	fi
+}
+
+# same here
+function get_md5sums()
+{
+	if [ -z "$MD5SUM_x86_64" ] || [ "$MD5SUM_x86_64" = "UNSUPPORTED" ]; then
+		md5sums=($MD5SUM)
+	else
+		md5sums=($MD5SUM_x86_64)
+	fi
+}
+
+# Check if the distfile exists and do checksum
+function checksum()
+{
+	local distfile=$(basename "$1")
+	result=$(find "$SRC_DIR" -type f -name "$distfile")
+	[ -f "$result" ] && hash=$(md5sum "$result" | awk '{print $1}') || perror "Distfile: $distfile not found"  # exit if a distfile is missing
+	fmt="MD5SUM check for $distfile ..."
+	[ "$hash" == "${md5sums[$i]}" ] && echo "$fmt OK" || echo "$fmt FAILED"
+}
+
+# Download the distfiles
+function fetch_distfiles()
+{
+	shift  # Remove flag
+	[ ! -d "$SRC_DIR" ] && mkdir -p "$SRC_DIR"
+	local pkgs="$@"
+	for pkg in "$pkgs"; do
+		result=$(find "$REPO_DIR" -type d -name "$pkg" -maxdepth 2)
+		if [ -z "$result" ]; then
+			echo "Package $pkg not found"
+		else
+			load_pkg_info "$result/$pkg.info"
+			get_urls
+			get_md5sums
+			for ((i=0; i<${#urls[@]}; i++)); do
+				url="${urls[$i]}"
+				echo "Downloading distfile from url: $url"
+				wget -c -P "$SRC_DIR" "$url" && echo "Download completed" || echo "Failed to download distfile"
+				checksum "$url"
+			done
+		fi
+	done
+}
+
+# Check if the script is being run as root
+if [ "$(id -u)" -ne 0 ]; then
+	perror "sbx can only being executed as root."
+fi
+
+# command-line parsing
+while getopts "siquhfbc" opt; do
+	case "$opt" in
+		s) sync_repo && exit 0 ;;
+		f) fetch_distfiles "$@" && exit 0 ;;
+		q) query_pkg $2 && exit 0 ;;
+		h) show_help && exit 0 ;;
+	esac
+done
