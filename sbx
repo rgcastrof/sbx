@@ -39,6 +39,7 @@ function load_pkg_info()
 		echo "Info file: $info_file not found"
 		echo "Unable to download the distfiles"
 	else
+		# clean the environment and load info
 		unset PRGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM DOWNLOAD_x86_64 MD5SUM_x86_64 REQUIRES MAINTAINER EMAIL
 		source "$info_file"
 	fi
@@ -69,7 +70,7 @@ function query_pkg()
 {
 	local pkg="$1"
 	echo "Searching for $pkg"
-	results=$(find "$REPO_DIR" -type d -name "*$pkg*" -maxdepth 2 | sed 's|.*/SBo||')
+	results=$(find "$REPO_DIR" -type d -name "*$pkg*" -maxdepth 2 | sed 's|.*/SBo/||')
 	[ -z "$results" ] && perror "No match for $pkg found"
 
 	echo "Found the following matches for $pkg"
