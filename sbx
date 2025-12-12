@@ -137,22 +137,29 @@ function fetch_distfiles()
 
 function build_pkg()
 {
-	fetch_distfiles "$@"
 	mkdir -p "$TMP"  # Create dir where the Slackbuild script will be executed
-	for ((j=0; j<${#urls[@]}; j++)); do
-		local distfile="$(basename "${urls[$j]}")"
-		distpath=$(find "$DIST_DIR" -type f -name "$distfile")
-		if [ -f "$distpath" ]; then
-			local pkg_dir=$(find "$REPO_DIR" -type d -name "$PRGNAM" -maxdepth 2)
-			# Copy the required files to the temp directory
-			# and run the SlackBuild script
-			cp "$distpath" "$pkg_dir/$PRGNAM.SlackBuild" "$pkg_dir/$PRGNAM.SlackBuild" "$TMP"
-			cd "$TMP" && bash "$PRGNAM.SlackBuild"
-			rm -rf "$distpath" "$PRGNAM.*"  # Clean the temp directory after the build
-		else
-			perror "distfile $distfile not found."  # Exit if a distfile is missing
-		fi
+	case "$TMP" in
+		/tmp/*) ;;
+		*) perror "ERROR: invalid TMP directory: $TMP" ;;
+	esac
+
+	for pkg in "$@"; do
+		fetch_distfiles "$pkg"
+		for ((j=0; j<${#urls[@]}; j++)); do
+			local distpath=$(find "$DIST_DIR" -type f -name "$(basename "${urls[$j]}")")
+			if [ -f "$distpath" ]; then  # Check if the distfile exists
+				# Copy the required files to the temp directory
+				# and run the SlackBuild script
+				local pkg_dir=$(find "$REPO_DIR" -type d -name "$pkg" -maxdepth 2)
+				cp -r "$pkg_dir" "$TMP"
+				cp "$distpath" "$TMP/$pkg"
+				cd "$TMP/$pkg" && bash "$pkg.SlackBuild"
+			else
+				perror "distfile $distpath not found."  # Exit if a distfile is missing
+			fi
+		done
 	done
+	rm -rf -- "$TMP"  # Clean the temp directory after the build
 }
 
 # Check if the script is being run as root
