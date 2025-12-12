@@ -152,7 +152,7 @@ function build_pkg()
 
 # Check if the script is being run as root
 if [ "$(id -u)" -ne 0 ]; then
-	perror "sbx can only being executed as root."
+	perror "sbx can only be executed as root. Exiting."
 fi
 
 # command-line parsing
