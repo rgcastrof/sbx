@@ -162,6 +162,19 @@ function build_pkg()
 	rm -rf -- "$TMP"  # Clean the temp directory after the build
 }
 
+function install_pkg()
+{
+	for pkg in "$@"; do
+		build_pkg "$pkg"
+		tgz=$(find /tmp/ -type f -name "$pkg*_SBo.tgz" -maxdepth 1 | sort | tail -n1)  # Gets the most recently compiled version
+		if /sbin/upgradepkg --reinstall --install-new "$tgz"; then
+			echo "Package installed/reinstalled successfully."
+		else
+			perror "ERROR: Failed to install/reinstall package."
+		fi
+	done
+}
+
 # Check if the script is being run as root
 if [ "$(id -u)" -ne 0 ]; then
 	perror "sbx can only be executed as root. Exiting."
@@ -208,3 +221,6 @@ done
 [ "${#FETCH[@]}" -gt 0 ] && fetch_distfiles "${FETCH[@]}"
 [ "${#QUERY[@]}" -gt 0 ] && query_pkg "${QUERY[@]}"
 [ "${#BUILD[@]}" -gt 0 ] && build_pkg "${BUILD[@]}"
+[ "${#INSTALL[@]}" -gt 0 ] && install_pkg "${INSTALL[@]}"
+
+exit 0
