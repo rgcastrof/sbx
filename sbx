@@ -135,12 +135,20 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # command-line parsing
-while getopts "siq:uhfbc" opt; do
+while getopts ":si:q:uhf:b:c" opt; do
 	case "$opt" in
-		s) sync_repo && exit 0 ;;
-		f) shift && fetch_distfiles "$@" && exit 0 ;;
-		b) shift && build_pkg "$@" && exit 0 ;;
-		q) query_pkg "$OPTARG" && exit 0 ;;
-		h) show_help && exit 0 ;;
+		s) SYNC=1 ;;
+		f) FETCH+=("$OPTARG") ;;
+		b) BUILD+=("$OPTARG") ;;
+		i) INSTALL+=("$OPTARG") ;;
+		q) QUERY+=("$OPTARG") ;;
+		h | *) show_help && exit 0 ;;
 	esac
 done
+
+shift $(($OPTIND - 1))
+
+[ "$SYNC" ] && sync_repo
+[ "$FETCH" ] && fetch_distfiles "$FETCH"
+[ "$QUERY" ] && query_pkg "$QUERY"
+[ "$BUILD" ] && build_pkg "$BUILD"
