@@ -168,20 +168,43 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # command-line parsing
-while getopts ":si:q:uhf:b:c" opt; do
-	case "$opt" in
-		s) SYNC=1 ;;
-		f) FETCH+=("$OPTARG") ;;
-		b) BUILD+=("$OPTARG") ;;
-		i) INSTALL+=("$OPTARG") ;;
-		q) QUERY+=("$OPTARG") ;;
-		h | *) show_help && exit 0 ;;
+#
+# Args variables
+SYNC=0
+FETCH=()
+BUILD=()
+INSTALL=()
+QUERY=()
+current=""
+
+for arg in "$@"; do
+	case "$arg" in  # Check if arg is a flag
+		-*)
+			flags="${arg:1}"
+			for ((i=0; i < ${#flags}; i++)); do  # Loop through every flag
+				flag="${flags:$i:1}"
+				case "$flag" in
+					s) SYNC=1; current="" ;;
+					f) current="FETCH" ;;
+					b) current="BUILD" ;;
+					q) current="QUERY" ;;
+					i) current="INSTALL" ;;
+					*) perror "ERROR: Unknown option: -$flag" ;;
+				esac
+			done
+			;;
+		*)  # If is not a flag, is a argument of the flag
+			case "$current" in
+				FETCH) FETCH+=("$arg") ;;
+				BUILD) BUILD+=("$arg") ;;
+				QUERY) QUERY+=("$arg") ;;
+				INSTALL) INSTALL+=("$arg") ;;
+			esac
+			;;
 	esac
 done
 
-shift $(($OPTIND - 1))
-
 [ "$SYNC" ] && sync_repo
-[ "$FETCH" ] && fetch_distfiles "$FETCH"
-[ "$QUERY" ] && query_pkg "$QUERY"
-[ "$BUILD" ] && build_pkg "$BUILD"
+[ "${#FETCH[@]}" -gt 0 ] && fetch_distfiles "${FETCH[@]}"
+[ "${#QUERY[@]}" -gt 0 ] && query_pkg "${QUERY[@]}"
+[ "${#BUILD[@]}" -gt 0 ] && build_pkg "${BUILD[@]}"
