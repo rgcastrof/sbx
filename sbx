@@ -22,7 +22,7 @@
 
 REPO_DIR=${REPO_DIR:-"/var/lib/sbx/SBo"}
 REPO_URL=${REPO_URL:-"git://git.slackbuilds.org/slackbuilds.git"}
-SRC_DIR=${SRC_DIR:-"/var/cache/sbx"}
+DIST_DIR=${DIST_DIR:-"/var/cache/sbx"}
 
 # print error and exit
 function perror()
@@ -101,7 +101,7 @@ function get_md5sums()
 function checksum()
 {
 	local distfile=$(basename "$1")
-	result=$(find "$SRC_DIR" -type f -name "$distfile")
+	result=$(find "$DIST_DIR" -type f -name "$distfile")
 	[ -f "$result" ] && hash=$(md5sum "$result" | awk '{print $1}') || perror "Distfile: $distfile not found"  # exit if a distfile is missing
 	fmt="MD5SUM check for $distfile ..."
 	[ "$hash" == "${md5sums[$i]}" ] && echo "$fmt OK" || echo "$fmt FAILED"
@@ -110,7 +110,7 @@ function checksum()
 # Download the distfiles
 function fetch_distfiles()
 {
-	[ ! -d "$SRC_DIR" ] && mkdir -p "$SRC_DIR"
+	[ ! -d "$DIST_DIR" ] && mkdir -p "$DIST_DIR"
 	for pkg in "$@"; do
 		result=$(find "$REPO_DIR" -type d -name "$pkg" -maxdepth 2)
 		if [ -z "$result" ]; then
@@ -122,7 +122,7 @@ function fetch_distfiles()
 			for ((i=0; i<${#urls[@]}; i++)); do
 				url="${urls[$i]}"
 				echo "Downloading distfile from url: $url"
-				wget -c -P "$SRC_DIR" "$url" && echo "Download completed" || echo "Failed to download distfile"
+				wget -c -P "$DIST_DIR" "$url" && echo "Download completed" || echo "Failed to download distfile"
 				checksum "$url"
 			done
 		fi
