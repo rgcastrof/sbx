@@ -69,13 +69,17 @@ function sync_repo()
 # Query the specified package
 function query_pkg()
 {
-	local pkg="$1"
-	echo "Searching for $pkg"
-	results=$(find "$REPO_DIR" -type d -name "*$pkg*" -maxdepth 2 | sed 's|.*/SBo/||')
-	[ -z "$results" ] && perror "No match for $pkg found"
+	for pkg in "$@"; do
+		echo
+		echo "Searching for $pkg..."
+		local results=$(find "$REPO_DIR" -type d -name "*$pkg*" -maxdepth 2 | sed 's|.*/SBo/||')
+		[ -z "$results" ] && perror "No match for $pkg found"
 
-	echo "Found the following matches for $pkg"
-	echo "$results"
+		echo "Found the following matches for $pkg:"
+		echo "------------------------------"
+		echo "$results"
+		echo "------------------------------"
+	done
 }
 
 # if one of the variables doesnt exists, get the other and vice versa
