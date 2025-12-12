@@ -36,7 +36,7 @@ function perror()
 function load_pkg_info()
 {
 	local info_file="$1"
-	if [ ! -f $info_file ]; then
+	if [ ! -f "$info_file" ]; then
 		echo "Info file: $info_file not found"
 		echo "Unable to download the distfiles"
 	else
@@ -106,10 +106,11 @@ function get_md5sums()
 function checksum()
 {
 	local distfile=$(basename "$1")
-	result=$(find "$DIST_DIR" -type f -name "$distfile")
+	local idx="$2"
+	local result=$(find "$DIST_DIR" -type f -name "$distfile")
 	[ -f "$result" ] && hash=$(md5sum "$result" | awk '{print $1}') || perror "Distfile: $distfile not found"  # exit if a distfile is missing
 	fmt="MD5SUM check for $distfile ..."
-	[ "$hash" == "${md5sums[$i]}" ] && echo "$fmt OK" || echo "$fmt FAILED"
+	[ "$hash" == "${md5sums[$idx]}" ] && echo "$fmt OK" || echo "$fmt FAILED"
 }
 
 # Download the distfiles
@@ -117,7 +118,7 @@ function fetch_distfiles()
 {
 	[ ! -d "$DIST_DIR" ] && mkdir -p "$DIST_DIR"
 	for pkg in "$@"; do
-		result=$(find "$REPO_DIR" -type d -name "$pkg" -maxdepth 2)
+		local result=$(find "$REPO_DIR" -type d -name "$pkg" -maxdepth 2)
 		if [ -z "$result" ]; then
 			echo "Package $pkg not found"
 		else
@@ -126,9 +127,9 @@ function fetch_distfiles()
 			get_md5sums
 			for ((i=0; i<${#urls[@]}; i++)); do
 				url="${urls[$i]}"
-				echo "Downloading distfile from url: $url"
-				wget -c -P "$DIST_DIR" "$url" && echo "Download completed" || echo "Failed to download distfile"
-				checksum "$url"
+				echo "--> Fetching: $url"
+				wget -c -P "$DIST_DIR" "$url" || perror "ERROR: failed to fetch $url"
+				checksum "$url" "$i"
 			done
 		fi
 	done
