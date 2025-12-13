@@ -24,7 +24,7 @@ NAME=${NAME:-"sbx"}
 REPO_DIR=${REPO_DIR:-"/var/lib/sbx/SBo"}
 REPO_URL=${REPO_URL:-"git://git.slackbuilds.org/slackbuilds.git"}
 DIST_DIR=${DIST_DIR:-"/var/cache/sbx"}
-VERSION=${VERSION_DIR:-"1.0.0"}
+VERSION=${VERSION_DIR:-"1.1.0"}
 TMP=${TMP:-"/tmp/build"}
 
 # print error and exit
@@ -177,6 +177,38 @@ function install_pkg()
 	done
 }
 
+function update_pkgs()
+{
+	local sbos=($(find /var/log/packages/ -type f -printf "%f\n" | grep _SBo))  # Get installed packages
+	echo "Searching for potential updates..."
+	echo
+	for ((i=0; i<${#sbos[@]}; i++)); do
+		local pkgnam=$(echo "${sbos[$i]}" | sed 's/-[0-9].*$//')  # Get only the name
+		local pkgver=$(echo "${sbos[$i]}" | sed 's|^.*-\([0-9][0-9._]*\)-.*|\1|')  # Get only the version
+		local pkg_dir=$(find "$REPO_DIR" -type d -name "$pkgnam" -maxdepth 2)
+		load_pkg_info "$pkg_dir/$pkgnam.info"
+
+		# Check if the versions are different
+		# and which one is more up to date
+		if [ "$pkgver" != "$VERSION" ]; then
+			if [ "$(printf '%s\n' "$pkgver" "$VERSION" | sort -V | tail -n1)" = "$VERSION" ]; then
+				fmt="Installed version is outdated."
+			else
+				fmt="Installed version is newer than repo."
+			fi
+			# Show packages with potential updates
+			cat <<EOF
+$pkgnam:
+  $fmt
+  INSTALLED VERSION: $pkgver
+  REPO VERSION: $VERSION
+
+EOF
+		fi
+	done
+	echo "Potential update list complete."
+}
+
 function print_help()
 {
 	cat <<EOF
@@ -184,6 +216,7 @@ $NAME $VERSION
 Usage: $NAME [OPTIONS] <package(s)>
 Available options:
   -s             Sync the remote repository with the local mirror.
+  -u             Search for potential updates to installed packages.
   -f package(s)  Download the distfiles of the specified package(s).
   -b package(s)  Build the specified package(s).
   -i package(s)  Same of '-b', but also install built packages.
@@ -199,12 +232,15 @@ if [ "$(id -u)" -ne 0 ]; then
 	perror "sbx can only be executed as root. Exiting."
 fi
 
+# If no args are passed
+# print help and exit
 [ $# -eq 0 ] && print_help
 
 # command-line parsing
 #
 # Args variables
 SYNC=0
+UPDATE=0
 FETCH=()
 BUILD=()
 INSTALL=()
@@ -219,6 +255,7 @@ for arg in "$@"; do
 				flag="${flags:$i:1}"
 				case "$flag" in
 					s) SYNC=1; current="" ;;
+					u) UPDATE=1 ;;
 					f) current="FETCH" ;;
 					b) current="BUILD" ;;
 					q) current="QUERY" ;;
@@ -241,6 +278,7 @@ for arg in "$@"; do
 done
 
 [ "$SYNC" -eq 1 ] && sync_repo
+[ "$UPDATE" -eq 1 ] && update_pkgs
 [ "${#FETCH[@]}" -gt 0 ] && fetch_distfiles "${FETCH[@]}"
 [ "${#QUERY[@]}" -gt 0 ] && query_pkg "${QUERY[@]}"
 [ "${#BUILD[@]}" -gt 0 ] && build_pkg "${BUILD[@]}"
