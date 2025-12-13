@@ -240,7 +240,7 @@ for arg in "$@"; do
 	esac
 done
 
-[ "$SYNC" ] && sync_repo
+[ "$SYNC" -eq 1 ] && sync_repo
 [ "${#FETCH[@]}" -gt 0 ] && fetch_distfiles "${FETCH[@]}"
 [ "${#QUERY[@]}" -gt 0 ] && query_pkg "${QUERY[@]}"
 [ "${#BUILD[@]}" -gt 0 ] && build_pkg "${BUILD[@]}"
