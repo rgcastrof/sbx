@@ -20,9 +20,11 @@
 # Rogério Girão rogeriogirao1@proton.me
 #
 
+NAME=${NAME:-"sbx"}
 REPO_DIR=${REPO_DIR:-"/var/lib/sbx/SBo"}
 REPO_URL=${REPO_URL:-"git://git.slackbuilds.org/slackbuilds.git"}
 DIST_DIR=${DIST_DIR:-"/var/cache/sbx"}
+VERSION=${VERSION_DIR:-"1.0.0"}
 TMP=${TMP:-"/tmp/build"}
 
 # print error and exit
@@ -175,10 +177,29 @@ function install_pkg()
 	done
 }
 
+function print_help()
+{
+	cat <<EOF
+$NAME $VERSION
+Usage: $NAME [OPTIONS] <package(s)>
+Available options:
+  -s             Sync the remote repository with the local mirror.
+  -f package(s)  Download the distfiles of the specified package(s).
+  -b package(s)  Build the specified package(s).
+  -i package(s)  Same of '-b', but also install built packages.
+  -q package(s)  Search for packages matching string.
+  -h             Display this help message.
+  -v             Print $NAME version.
+EOF
+	exit 0
+}
+
 # Check if the script is being run as root
 if [ "$(id -u)" -ne 0 ]; then
 	perror "sbx can only be executed as root. Exiting."
 fi
+
+[ $# -eq 0 ] && print_help
 
 # command-line parsing
 #
@@ -202,6 +223,8 @@ for arg in "$@"; do
 					b) current="BUILD" ;;
 					q) current="QUERY" ;;
 					i) current="INSTALL" ;;
+					v) echo "$VERSION" && exit 0 ;;
+					h) print_help ;;
 					*) perror "ERROR: Unknown option: -$flag" ;;
 				esac
 			done
