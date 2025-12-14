@@ -21,10 +21,10 @@
 #
 
 NAME=${NAME:-"sbx"}
+VERSION=${VERSION:-"1.1.1"}
 REPO_DIR=${REPO_DIR:-"/var/lib/sbx/SBo"}
 REPO_URL=${REPO_URL:-"git://git.slackbuilds.org/slackbuilds.git"}
 DIST_DIR=${DIST_DIR:-"/var/cache/sbx"}
-VERSION=${VERSION_DIR:-"1.1.1"}
 TMP=${TMP:-"/tmp/build"}
 
 # print error and exit
