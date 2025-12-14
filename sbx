@@ -24,7 +24,7 @@ NAME=${NAME:-"sbx"}
 REPO_DIR=${REPO_DIR:-"/var/lib/sbx/SBo"}
 REPO_URL=${REPO_URL:-"git://git.slackbuilds.org/slackbuilds.git"}
 DIST_DIR=${DIST_DIR:-"/var/cache/sbx"}
-VERSION=${VERSION_DIR:-"1.1.0"}
+VERSION=${VERSION_DIR:-"1.1.1"}
 TMP=${TMP:-"/tmp/build"}
 
 # print error and exit
@@ -39,16 +39,18 @@ function load_pkg_info()
 {
 	local info_file="$1"
 	if [ ! -f "$info_file" ]; then
-		echo "Info file: $info_file not found"
-		echo "Unable to download the distfiles"
+		perror "ERROR: Missing .info file: $info_file."
 	else
 		# clean the environment and load info
 		unset PRGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM DOWNLOAD_x86_64 MD5SUM_x86_64 REQUIRES MAINTAINER EMAIL
-		source "$info_file"
+		set -a
+		source "$info_file" || perror "ERROR: Failed to load $info_file."
+		set +a
 	fi
 }
 
-# If not exists clone SBo repository else update it
+# If a local mirror doesnt exist, clone it
+# Else, pull the changes
 function sync_repo()
 {
 	if [ ! -d "$REPO_DIR/.git" ]; then
@@ -74,8 +76,8 @@ function query_pkg()
 	for pkg in "$@"; do
 		echo
 		echo "Searching for $pkg..."
-		local results=$(find "$REPO_DIR" -type d -name "*$pkg*" -maxdepth 2 | sed 's|.*/SBo/||')
-		[ -z "$results" ] && perror "No match for $pkg found"
+		local results=$(find "$REPO_DIR" -maxdepth 2 -type d -name "*$pkg*" | sed 's|.*/SBo/||')
+		[ -z "$results" ] && { echo "No match for $pkg found"; continue; }
 
 		echo "Found the following matches for $pkg:"
 		echo "------------------------------"
@@ -112,7 +114,7 @@ function checksum()
 	local result=$(find "$DIST_DIR" -type f -name "$distfile")
 	[ -f "$result" ] && hash=$(md5sum "$result" | awk '{print $1}') || perror "Distfile: $distfile not found"  # exit if a distfile is missing
 	fmt="MD5SUM check for $distfile ..."
-	[ "$hash" == "${md5sums[$idx]}" ] && echo "$fmt OK" || echo "$fmt FAILED"
+	[ "$hash" == "${md5sums[$idx]}" ] && echo "$fmt OK" || perror "$fmt FAILED"
 }
 
 # Download the distfiles
@@ -120,7 +122,7 @@ function fetch_distfiles()
 {
 	[ ! -d "$DIST_DIR" ] && mkdir -p "$DIST_DIR"
 	for pkg in "$@"; do
-		local result=$(find "$REPO_DIR" -type d -name "$pkg" -maxdepth 2)
+		local result=$(find "$REPO_DIR" -maxdepth 2 -type d -name "$pkg")
 		if [ -z "$result" ]; then
 			echo "Package $pkg not found"
 		else
@@ -129,7 +131,7 @@ function fetch_distfiles()
 			get_md5sums
 			for ((i=0; i<${#urls[@]}; i++)); do
 				url="${urls[$i]}"
-				echo "--> Fetching: $url"
+				echo "==> Fetching: $url"
 				wget -c -P "$DIST_DIR" "$url" || perror "ERROR: failed to fetch $url"
 				checksum "$url" "$i"
 			done
@@ -146,29 +148,31 @@ function build_pkg()
 	esac
 
 	for pkg in "$@"; do
+		unset urls md5sums
 		fetch_distfiles "$pkg"
+		echo "==> Building $pkg"
+		local pkgpath=$(find "$REPO_DIR" -mindepth 2 -maxdepth 2 -type d -name "$pkg")
+		cp -r "$pkgpath" "$TMP"
 		for ((j=0; j<${#urls[@]}; j++)); do
 			local distpath=$(find "$DIST_DIR" -type f -name "$(basename "${urls[$j]}")")
-			if [ -f "$distpath" ]; then  # Check if the distfile exists
-				# Copy the required files to the temp directory
-				# and run the SlackBuild script
-				local pkg_dir=$(find "$REPO_DIR" -type d -name "$pkg" -maxdepth 2)
-				cp -r "$pkg_dir" "$TMP"
-				cp "$distpath" "$TMP/$pkg"
-				cd "$TMP/$pkg" && bash "$pkg.SlackBuild"
+			if [ -f "$distpath" ]; then     # Check if the distfile exists
+				cp "$distpath" "$TMP/$pkg"  # and copy it to the temp directory
 			else
 				perror "distfile $distpath not found."  # Exit if a distfile is missing
 			fi
 		done
+		cd "$TMP/$pkg"
+		#  Clean the temp directory if the build was successful
+		if bash "$pkg.SlackBuild"; then
+			rm -rf -- "$TMP/$pkg"
+		fi
 	done
-	rm -rf -- "$TMP"  # Clean the temp directory after the build
 }
 
 function install_pkg()
 {
 	for pkg in "$@"; do
-		build_pkg "$pkg"
-		tgz=$(find /tmp/ -type f -name "$pkg*_SBo.tgz" -maxdepth 1 | sort | tail -n1)  # Gets the most recently compiled version
+		tgz=$(find /tmp/ -maxdepth 1 -type f -name "$pkg*_SBo.tgz" | sort | tail -n1)  # Gets the most recently compiled version
 		if /sbin/upgradepkg --reinstall --install-new "$tgz"; then
 			echo "Package installed/reinstalled successfully."
 		else
@@ -185,8 +189,8 @@ function update_pkgs()
 	for ((i=0; i<${#sbos[@]}; i++)); do
 		local pkgnam=$(echo "${sbos[$i]}" | sed 's/-[0-9].*$//')  # Get only the name
 		local pkgver=$(echo "${sbos[$i]}" | sed 's|^.*-\([0-9][0-9._]*\)-.*|\1|')  # Get only the version
-		local pkg_dir=$(find "$REPO_DIR" -type d -name "$pkgnam" -maxdepth 2)
-		load_pkg_info "$pkg_dir/$pkgnam.info"
+		local pkgpath=$(find "$REPO_DIR" -maxdepth 2 -type d -name "$pkgnam")
+		load_pkg_info "$pkgpath/$pkgnam.info"
 
 		# Check if the versions are different
 		# and which one is more up to date
@@ -219,7 +223,7 @@ Available options:
   -u             Search for potential updates to installed packages.
   -f package(s)  Download the distfiles of the specified package(s).
   -b package(s)  Build the specified package(s).
-  -i package(s)  Same of '-b', but also install built packages.
+  -i package(s)  Install built packages.
   -q package(s)  Search for packages matching string.
   -h             Display this help message.
   -v             Print $NAME version.
