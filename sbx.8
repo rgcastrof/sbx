@@ -1,0 +1,144 @@
+.TH SBX 8 "Dec 15, 2025" sbx-1.1.2 ""
+.SH NAME
+.B sbx
+\- Build, install and update SlackBuilds.org packages
+
+.SH SYNOPSIS
+.B sbx
+.RI [ OPTIONS ]
+
+.SH DESCRIPTION
+.B sbx
+is a small shell script that provides a minimal CLI
+interface to simplify the manual process of building
+SlackBuilds.org packages on Slackware, namely:
+
+.RS
+1. Download distfiles
+.br
+2. Check the md5sums
+.br
+3. Run the .SlackBuild script
+.br
+4. Install the built package
+.RE
+
+.PP
+It also provides additional features such as querying available
+packages and checking for updates to installed SBo packages.
+
+.SS Instructions
+.B sbx
+assumes that the user has a basic understanding of SlackBuilds scripts
+in general and of the SlackBuilds.org third-party repository.
+The script works by maintaining a local mirror of the repository,
+which is cloned using git.
+.PP
+Due to its nature,
+.B sbx
+must be executed as the root user, since the SBo SlackBuilds are
+written with the intention of being run as root.
+
+After installing
+.B sbx
+, the first command that must be executed is:
+
+.RS
+# sbx -s
+.RE
+
+The first time the
+.B \-s
+option is used,
+.B sbx
+will clone the SlackBuilds.org repository from
+
+.RS
+.I git://git.slackbuilds.org/slackbuilds.git
+.RE
+
+.PP
+into the following directory:
+
+.RS
+.I /var/lib/sbx/SBo
+.RE
+
+.PP
+The main features of
+.B sbx
+are related to building, installing and verifying package updates.
+These tasks are performed by running
+.B sbx
+with the following syntax:
+
+.RS
+# sbx
+.I [OPTIONS]
+<package(s)>
+.RE
+
+.PP
+The section below describes all available options and their behavior.
+
+.SH OPTIONS
+.TP 5
+.B \-s
+Synchronize the local SlackBuilds.org mirror with the remote repository.
+If the local mirror does not exist, it will be cloned. Otherwise,
+the repository will be updated by pulling the latest changes.
+
+.TP
+.B \-u
+Check for updates to installed SBo packages.
+The output compares the installed version with the repository version
+and reports whether the installed package is outdated or newer than
+the version available in the repository.
+
+.TP
+.BI \-f " package(s)"
+Download the distfiles required to build the specified package(s)
+and verify their corresponding md5sums.
+The files are downloaded to the following directory:
+
+.RS
+.I /var/cache/sbx
+.RE
+
+.TP
+.BI \-b " package(s)"
+Build the specified package(s).
+This option downloads any missing distfiles, verifies their checksums
+and runs the corresponding SlackBuild script.
+
+.TP
+.BI \-i " package(s)"
+Install built package(s).
+This option searches for SBo packages matching the given name in
+.I /tmp
+If more than one match is found, the most recently built package is installed.
+
+.TP
+.BI \-q " string"
+Search the local SlackBuilds.org mirror for packages matching the given
+string and display the results with their versions.
+
+.TP
+.B \-h
+Display a help message and exit.
+
+.TP
+.B \-v
+Print the current
+.B sbx
+version and exit.
+
+.SH AUTHOR
+Rogério Girão
+<rogeriogirao1@proton.me>
+
+.SH "SEE ALSO"
+.BR upgradepkg (8),
+.BR makepkg (8),
+.BR pkgtool (8),
+.BR su (1).
