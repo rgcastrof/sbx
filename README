@@ -1,0 +1,20 @@
+   sbx - Build, install and update SlackBuilds.org packages
+   ---------------------------------------------------------
+             Author: Rogério Girão aka rgcastrof
+		           <rogeriogirao1@proton.me>
+
+  sbx is a small shell script that provides a minimal CLI
+  interface to simplify the manual process of building
+  SlackBuilds.org packages on Slackware, namely:
+
+    1. Download distfiles
+    2. Check the md5sums
+    3. Run the .SlackBuild script
+    4. Install the built package
+
+  It also provides additional features such as querying available
+  packages and checking for updates with installed SBo packages.
+
+  For more information, see its man page:
+
+    man 8 sbx
