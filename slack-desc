@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.
+# Line up the first '|' above the ':' following the base package name, and
+# the '|' on the right side marks the last column you can put a character in.
+# You must make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+   |-----handy-ruler------------------------------------------------------|
+sbx: sbx (SlackBuilds.org helper script)
+sbx:
+sbx: sbx is a shell script for building SlackBuilds.org packages
+sbx: on Slackware. It handles downloading distfiles, verifying
+sbx: md5sums and running SlackBuild scripts to build the package.
+sbx:
+sbx: sbx uses pkgtools for package installation.
+sbx:
+sbx: Homepage: https://github.com/rgcastrof/sbx
+sbx:
+sbx:
