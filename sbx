@@ -21,7 +21,7 @@
 #
 
 NAME=${NAME:-"sbx"}
-VERSION=${VERSION:-"1.1.2"}
+VERSION=${VERSION:-"1.2.2"}
 REPO_DIR=${REPO_DIR:-"/var/lib/sbx/SBo"}
 REPO_URL=${REPO_URL:-"git://git.slackbuilds.org/slackbuilds.git"}
 DIST_DIR=${DIST_DIR:-"/var/cache/sbx"}
@@ -70,31 +70,71 @@ function sync_repo()
 	fi
 }
 
-# Query the specified package
+function simple_query() {
+	local pkg="$1"
+	local pkgpath="$2"
+
+	echo "Found the following matches for $pkg:"
+	echo "----------------------------------------"
+	# Print relative SBo path and package version aligned
+	printf '%-40s  %s\n' "$(echo "$pkgpath" | sed 's|.*/SBo/||')"  "$VERSION"
+	echo "----------------------------------------"
+}
+
+function detailed_query() {
+	local pkgpath="$1"
+	local relpath="$(echo "$pkgpath" | sed 's|.*/SBo/||')"
+	# cut the slack-desc header to show only
+	# the package description
+	local desc=$(awk '/handy-ruler/ {flag=1; next} flag' "$pkgpath/slack-desc")
+	cat <<EOF
+----------------------------------------
+PACKAGE NAME: $PRGNAM
+PACKAGE VERSION: $VERSION
+PACKAGE LOCATION: $relpath
+PACKAGE HOMEPAGE: $HOMEPAGE
+PACKAGE MAINTAINER: $MAINTAINER <$EMAIL>
+PACKAGE REQUIRES: $REQUIRES
+PACKAGE DESCRIPTION:
+$desc
+----------------------------------------
+
+EOF
+}
+
+# Dispatch query results to the appropriate output formatter
+# Mode 0 = simple, Mode 1 = detailed
+function run_query_results() {
+	local mode="$1"
+	shift
+
+	for pkgpath in "$@"; do
+		load_pkg_info "$pkgpath/$(basename "$pkgpath").info"
+		[ "$mode" -eq 1 ] && detailed_query "$pkgpath" || simple_query "$PRGNAM" "$pkgpath"
+	done
+}
+
+# Main query entry point
 function query_pkg()
 {
-	local pkgpath
+	local querymode="$1"
+	shift
+	local pattern
 	local -a results
 
 	for pkg in "$@"; do
 		echo
 		echo "Searching for $pkg..."
-		mapfile -t results < <(find "$REPO_DIR" -mindepth 2 -maxdepth 2 -type d -name "*$pkg*")
+		# Exact match is used in detailed mode (-Q)
+		# partial match is used in simple mode (-q)
+		pattern=$([ "$querymode" -eq 1 ] && echo "$pkg" || echo "*$pkg*")
+		mapfile -t results < <(find "$REPO_DIR" -mindepth 2 -maxdepth 2 -type d -name "$pattern")
+
 		if [ "${#results[@]}" -eq 0 ]; then
 			echo "No match for $pkg found"
 			continue
-		else
-			echo "Found the following matches for $pkg:"
-			echo "----------------------------------------"
-			for ((i=0; i<${#results[@]}; i++)); do
-				pkgpath="${results[$i]}"
-				load_pkg_info "$pkgpath/$(basename "$pkgpath").info"  # Load info to get the version
-				# Print relative SBo path and package version aligned
-				printf '%-40s  %s\n' "$(echo "$pkgpath" | sed 's|.*/SBo/||')"  "$VERSION"
-			done
-			echo "----------------------------------------"
 		fi
-
+		run_query_results "$querymode" "${results[@]}"
 	done
 }
 
@@ -240,6 +280,7 @@ Available options:
   -b package(s)  Build the specified package(s).
   -i package(s)  Install built packages.
   -q package(s)  Search for packages matching string.
+  -Q package(s)  Query packages by exact name and display detailed information.
   -h             Display this help message.
   -v             Print $NAME version.
 EOF
@@ -260,6 +301,7 @@ fi
 # Args variables
 SYNC=0
 UPDATE=0
+QUERYMODE=0
 FETCH=()
 BUILD=()
 INSTALL=()
@@ -277,7 +319,10 @@ for arg in "$@"; do
 					u) UPDATE=1 ;;
 					f) current="FETCH" ;;
 					b) current="BUILD" ;;
-					q) current="QUERY" ;;
+					q|Q)
+						[ "$flag" = "Q" ] && QUERYMODE=1 || QUERYMODE=0
+						current="QUERY"
+						;;
 					i) current="INSTALL" ;;
 					v) echo "$VERSION" && exit 0 ;;
 					h) print_help ;;
@@ -299,7 +344,7 @@ done
 [ "$SYNC" -eq 1 ] && sync_repo
 [ "$UPDATE" -eq 1 ] && update_pkgs
 [ "${#FETCH[@]}" -gt 0 ] && fetch_distfiles "${FETCH[@]}"
-[ "${#QUERY[@]}" -gt 0 ] && query_pkg "${QUERY[@]}"
+[ "${#QUERY[@]}" -gt 0 ] && query_pkg "$QUERYMODE" "${QUERY[@]}"
 [ "${#BUILD[@]}" -gt 0 ] && build_pkg "${BUILD[@]}"
 [ "${#INSTALL[@]}" -gt 0 ] && install_pkg "${INSTALL[@]}"
 
