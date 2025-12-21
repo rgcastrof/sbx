@@ -1,4 +1,4 @@
-.TH SBX 8 "Dec 15, 2025" sbx-1.1.2 ""
+.TH SBX 8 "Dec 21, 2025" sbx-1.2.2 ""
 .SH NAME
 .B sbx
 \- Build, install and update SlackBuilds.org packages
@@ -122,6 +122,12 @@ If more than one match is found, the most recently built package is installed.
 .BI \-q " string"
 Search the local SlackBuilds.org mirror for packages matching the given
 string and display the results with their versions.
+
+.TP
+.BI \-Q " package(s)"
+Query packages by exact name and display detailed package information.
+This option requires an exact match and shows extended metadata such as the
+package description, homepage, maintainer and dependencies.
 
 .TP
 .B \-h
